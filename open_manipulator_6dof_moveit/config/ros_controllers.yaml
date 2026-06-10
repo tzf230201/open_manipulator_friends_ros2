@@ -35,7 +35,7 @@ open_manipulator_6dof:
         - joint4
         - joint5
         - joint6
-    - name: grippper_controller
+    - name: gripper_controller
       action_ns: follow_joint_trajectory
       default: True
       type: FollowJointTrajectory
