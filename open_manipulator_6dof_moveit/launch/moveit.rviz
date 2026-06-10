@@ -1,5 +1,5 @@
 Panels:
-  - Class: rviz/Displays
+  - Class: rviz_common/Displays
     Help Height: 84
     Name: Displays
     Property Tree Widget:
@@ -7,9 +7,9 @@ Panels:
         - /MotionPlanning1
       Splitter Ratio: 0.742560029
     Tree Height: 405
-  - Class: rviz/Help
+  - Class: rviz_common/Help
     Name: Help
-  - Class: rviz/Views
+  - Class: rviz_common/Views
     Expanded:
       - /Current View1
     Name: Views
@@ -19,7 +19,7 @@ Visualization Manager:
   Displays:
     - Alpha: 0.5
       Cell Size: 1
-      Class: rviz/Grid
+      Class: rviz_default_plugins/Grid
       Color: 30; 30; 31
       Enabled: true
       Line Style:
@@ -234,14 +234,14 @@ Visualization Manager:
     Frame Rate: 30
   Name: root
   Tools:
-    - Class: rviz/Interact
+    - Class: rviz_default_plugins/Interact
       Hide Inactive Objects: true
-    - Class: rviz/MoveCamera
-    - Class: rviz/Select
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
   Value: true
   Views:
     Current:
-      Class: rviz/XYOrbit
+      Class: rviz_default_plugins/XYOrbit
       Distance: 0.856767893
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.0599999987
@@ -259,7 +259,7 @@ Visualization Manager:
       Near Clip Distance: 0.00999999978
       Pitch: 0.149797142
       Target Frame: world
-      Value: XYOrbit (rviz)
+      Value: XYOrbit (rviz_default_plugins)
       Yaw: 5.39176178
     Saved: ~
 Window Geometry:
