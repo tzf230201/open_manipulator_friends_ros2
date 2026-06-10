@@ -1,5 +1,6 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://ros.org/wiki/xacro">
+  <xacro:arg name="use_gazebo_ros2_control" default="false"/>
 
   <!-- Gazebo Reference macro -->
   <xacro:macro name="RefLink" params="ref">
@@ -19,44 +20,46 @@
   </gazebo>
 
   <!-- Link1 -->
-  <RefLink ref="link1"/>
+  <xacro:RefLink ref="link1"/>
 
   <!-- Link2 -->
-  <RefLink ref="link2"/>
+  <xacro:RefLink ref="link2"/>
 
   <!-- Link3 -->
-  <RefLink ref="link3"/>
+  <xacro:RefLink ref="link3"/>
 
   <!-- Link4 -->
-  <RefLink ref="link4"/>
+  <xacro:RefLink ref="link4"/>
 
   <!-- Link5 -->
-  <RefLink ref="link5"/>
+  <xacro:RefLink ref="link5"/>
 
   <!-- Link6 -->
-  <RefLink ref="link6"/>
+  <xacro:RefLink ref="link6"/>
 
   <!-- Link7 -->
-  <RefLink ref="link7"/>
+  <xacro:RefLink ref="link7"/>
 
   <!-- gripper_link -->
-  <RefLink ref="gripper_link"/>
+  <xacro:RefLink ref="gripper_link"/>
 
   <!-- gripper_link_sub -->
-  <RefLink ref="gripper_link_sub"/>
+  <xacro:RefLink ref="gripper_link_sub"/>
 
   <!-- end effector link -->
   <gazebo reference="end_effector_link">
     <material>Gazebo/Red</material>
   </gazebo>
 
-  <!-- ros_control plugin -->
-  <gazebo>
-    <plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so">
-      <robotNamespace>open_manipulator_6dof</robotNamespace>
-      <controlPeriod>0.001</controlPeriod>
-      <robotSimType>gazebo_ros_control/DefaultRobotHWSim</robotSimType>
-    </plugin>
-  </gazebo>
+  <!-- Gazebo classic ros2_control plugin. Disabled by default because the plugin is optional. -->
+  <xacro:if value="$(arg use_gazebo_ros2_control)">
+    <gazebo>
+      <plugin name="gazebo_ros2_control" filename="libgazebo_ros2_control.so">
+        <ros>
+          <namespace>/open_manipulator_6dof</namespace>
+        </ros>
+      </plugin>
+    </gazebo>
+  </xacro:if>
 
 </robot>

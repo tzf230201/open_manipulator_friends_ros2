@@ -1,88 +1,79 @@
-﻿################################################################################
-# Set minimum required version of cmake, project name and compile options
-################################################################################
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.8)
 project(open_manipulator_6dof_controller)
 
-add_compile_options(-std=c++11)
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
 
-################################################################################
-# Find catkin packages and libraries for catkin and system dependencies
-################################################################################
-find_package(catkin REQUIRED COMPONENTS
-    roscpp
-    std_msgs
-    sensor_msgs
-    geometry_msgs
-    moveit_msgs
-    trajectory_msgs
-    open_manipulator_msgs
-    robotis_manipulator
-    open_manipulator_6dof_libs
-    moveit_core
-    moveit_ros_planning
-    moveit_ros_planning_interface
-    cmake_modules
-)
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(moveit_msgs REQUIRED)
+find_package(trajectory_msgs REQUIRED)
+find_package(open_manipulator_msgs REQUIRED)
+find_package(robotis_manipulator REQUIRED)
+find_package(open_manipulator_6dof_libs REQUIRED)
+find_package(moveit_core REQUIRED)
+find_package(moveit_ros_planning REQUIRED)
+find_package(moveit_ros_planning_interface REQUIRED)
 find_package(Boost REQUIRED)
 
-################################################################################
-# Setup for python modules and scripts
-################################################################################
-
-################################################################################
-# Declare ROS messages, services and actions
-################################################################################
-
-################################################################################
-## Declare ROS dynamic reconfigure parameters
-################################################################################
-
-################################################################################
-# Declare catkin specific configuration to be passed to dependent projects
-################################################################################
-catkin_package(
-  INCLUDE_DIRS include
-  CATKIN_DEPENDS roscpp std_msgs sensor_msgs geometry_msgs moveit_msgs trajectory_msgs open_manipulator_msgs robotis_manipulator open_manipulator_6dof_libs moveit_core moveit_ros_planning  moveit_ros_planning_interface cmake_modules
-  DEPENDS Boost
+add_executable(${PROJECT_NAME}
+  src/open_manipulator_6dof_controller.cpp
 )
 
-################################################################################
-# Build
-################################################################################
-include_directories(
-  include
-  ${catkin_INCLUDE_DIRS}
-  ${Boost_INCLUDE_DIRS}
+target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
+
+target_include_directories(${PROJECT_NAME}
+  PRIVATE
+    include
+    ${Boost_INCLUDE_DIRS}
 )
 
-add_executable(open_manipulator_6dof_controller src/open_manipulator_6dof_controller.cpp)
-add_dependencies(open_manipulator_6dof_controller ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(open_manipulator_6dof_controller ${catkin_LIBRARIES} ${Boost_LIBRARIES})
-
-################################################################################
-# Install
-################################################################################
-install(TARGETS open_manipulator_6dof_controller
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+ament_target_dependencies(${PROJECT_NAME}
+  rclcpp
+  std_msgs
+  sensor_msgs
+  geometry_msgs
+  moveit_msgs
+  trajectory_msgs
+  open_manipulator_msgs
+  robotis_manipulator
+  open_manipulator_6dof_libs
+  moveit_core
+  moveit_ros_planning
+  moveit_ros_planning_interface
 )
 
-install(PROGRAMS
-  scripts/create_udev_rules
-  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}  
+target_link_libraries(${PROJECT_NAME}
+  ${Boost_LIBRARIES}
 )
 
-install(DIRECTORY include/${PROJECT_NAME}/
-  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+install(
+  TARGETS ${PROJECT_NAME}
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
-install(DIRECTORY launch
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+install(
+  PROGRAMS scripts/create_udev_rules
+  DESTINATION lib/${PROJECT_NAME}
 )
 
-install(FILES 99-open-manipulator-cdc.rules
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+install(
+  DIRECTORY include/
+  DESTINATION include
 )
-################################################################################
-# Test
-################################################################################
+
+install(
+  DIRECTORY launch
+  DESTINATION share/${PROJECT_NAME}
+)
+
+install(
+  FILES 99-open-manipulator-cdc.rules
+  DESTINATION share/${PROJECT_NAME}
+)
+
+ament_package()

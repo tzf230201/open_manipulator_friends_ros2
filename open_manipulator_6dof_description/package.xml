@@ -1,11 +1,11 @@
 <?xml version="1.0"?>
-<package format="2">
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
   <name>open_manipulator_6dof_description</name>
   <version>1.0.0</version>
-  <description>
-    OpenManipulator 3D model description for visualization and simulation 
-  </description>
-  <license>Apache 2.0</license>
+  <description>OpenManipulator 6DOF model description for visualization and simulation.</description>
+  <license>Apache-2.0</license>
+
   <author email="zang09@naver.com">Hae-Bum Jung</author>
   <author email="thlim@robotis.com">Darby Lim</author>
   <author email="hjkim@robotis.com">Hye-Jong KIM</author>
@@ -16,9 +16,17 @@
   <url type="emanual">http://emanual.robotis.com/docs/en/platform/openmanipulator</url>
   <url type="repository">https://github.com/ROBOTIS-GIT/open_manipulator</url>
   <url type="bugtracker">https://github.com/ROBOTIS-GIT/open_manipulator/issues</url>
-  <buildtool_depend>catkin</buildtool_depend>
-  <depend>joint_state_publisher</depend>
-  <depend>robot_state_publisher</depend>
-  <depend>xacro</depend>
-  <depend>urdf</depend>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>joint_state_publisher</exec_depend>
+  <exec_depend>joint_state_publisher_gui</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>rviz2</exec_depend>
+  <exec_depend>urdf</exec_depend>
+  <exec_depend>xacro</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
 </package>

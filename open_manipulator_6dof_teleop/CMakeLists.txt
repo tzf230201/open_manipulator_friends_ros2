@@ -1,73 +1,52 @@
-﻿################################################################################
-# Set minimum required version of cmake, project name and compile options
-################################################################################
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.8)
 project(open_manipulator_6dof_teleop)
 
-add_compile_options(-std=c++11)
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
 
-################################################################################
-# Find catkin packages and libraries for catkin and system dependencies
-################################################################################
-find_package(catkin REQUIRED COMPONENTS
-    roscpp
-    std_msgs
-    sensor_msgs
-    open_manipulator_msgs
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(open_manipulator_msgs REQUIRED)
+
+set(DEPENDENCIES
+  rclcpp
+  std_msgs
+  sensor_msgs
+  open_manipulator_msgs
 )
 
-################################################################################
-# Setup for python modules and scripts
-################################################################################
+add_executable(open_manipulator_6dof_teleop_keyboard
+  src/open_manipulator_6dof_teleop_keyboard.cpp
+)
+target_compile_features(open_manipulator_6dof_teleop_keyboard PUBLIC cxx_std_17)
+target_include_directories(open_manipulator_6dof_teleop_keyboard PRIVATE include)
+ament_target_dependencies(open_manipulator_6dof_teleop_keyboard ${DEPENDENCIES})
 
-################################################################################
-# Declare ROS messages, services and actions
-################################################################################
+add_executable(open_manipulator_6dof_teleop_joystick
+  src/open_manipulator_6dof_teleop_joystick.cpp
+)
+target_compile_features(open_manipulator_6dof_teleop_joystick PUBLIC cxx_std_17)
+target_include_directories(open_manipulator_6dof_teleop_joystick PRIVATE include)
+ament_target_dependencies(open_manipulator_6dof_teleop_joystick ${DEPENDENCIES})
 
-################################################################################
-## Declare ROS dynamic reconfigure parameters
-################################################################################
-
-################################################################################
-# Declare catkin specific configuration to be passed to dependent projects
-################################################################################
-catkin_package(
-  INCLUDE_DIRS include
-  CATKIN_DEPENDS roscpp std_msgs sensor_msgs open_manipulator_msgs
-
+install(
+  TARGETS
+    open_manipulator_6dof_teleop_keyboard
+    open_manipulator_6dof_teleop_joystick
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
-################################################################################
-# Build
-################################################################################
-include_directories(
-  include
-  ${catkin_INCLUDE_DIRS}
+install(
+  DIRECTORY include/
+  DESTINATION include
 )
 
-add_executable(open_manipulator_6dof_teleop_keyboard src/open_manipulator_6dof_teleop_keyboard.cpp)
-add_dependencies(open_manipulator_6dof_teleop_keyboard ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(open_manipulator_6dof_teleop_keyboard ${catkin_LIBRARIES} )
-
-add_executable(open_manipulator_6dof_teleop_joystick src/open_manipulator_6dof_teleop_joystick.cpp)
-add_dependencies(open_manipulator_6dof_teleop_joystick ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(open_manipulator_6dof_teleop_joystick ${catkin_LIBRARIES} )
-
-################################################################################
-# Install
-################################################################################
-install(TARGETS open_manipulator_6dof_teleop_keyboard open_manipulator_6dof_teleop_joystick
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+install(
+  DIRECTORY launch
+  DESTINATION share/${PROJECT_NAME}
 )
 
-install(DIRECTORY include/${PROJECT_NAME}/
-  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-)
-
-install(DIRECTORY launch
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-)
-
-################################################################################
-# Test
-################################################################################
+ament_package()

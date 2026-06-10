@@ -22,45 +22,91 @@
 
 #include "open_manipulator_6dof_teleop/open_manipulator_6dof_teleop_joystick.h"
 
-using namespace open_manipulator_teleop;
+#include <chrono>
+#include <functional>
 
-OM_TELEOP::OM_TELEOP()
-    :node_handle_(""),
-     priv_node_handle_("~")
+using namespace open_manipulator_teleop;
+using std::placeholders::_1;
+using namespace std::chrono_literals;
+
+namespace
+{
+template<typename ServiceT>
+bool sendPlanningRequest(
+  const rclcpp::Node::SharedPtr & node,
+  const typename rclcpp::Client<ServiceT>::SharedPtr & client,
+  const typename ServiceT::Request::SharedPtr & request,
+  const std::string & service_name)
+{
+  if (!client->service_is_ready() && !client->wait_for_service(500ms))
+  {
+    RCLCPP_WARN(node->get_logger(), "Service '%s' is not available", service_name.c_str());
+    return false;
+  }
+
+  client->async_send_request(
+    request,
+    [logger = node->get_logger(), service_name](typename rclcpp::Client<ServiceT>::SharedFuture future)
+    {
+      try
+      {
+        if (!future.get()->is_planned)
+        {
+          RCLCPP_WARN(logger, "Service '%s' returned is_planned=false", service_name.c_str());
+        }
+      }
+      catch (const std::exception & exception)
+      {
+        RCLCPP_WARN(
+          logger, "Service '%s' response failed: %s", service_name.c_str(), exception.what());
+      }
+    });
+
+  return true;
+}
+}  // namespace
+
+OM_TELEOP::OM_TELEOP(const rclcpp::Node::SharedPtr & node)
+: node_(node)
 {
   present_joint_angle.resize(NUM_OF_JOINT);
   present_kinematic_position.resize(3);
+  end_effector_name_ = node_->declare_parameter<std::string>("end_effector_name", "gripper");
 
   initClient();
   initSubscriber();
 
-  ROS_INFO("OpenManipulator initialization");
+  RCLCPP_INFO(node_->get_logger(), "OpenManipulator initialization");
 }
 
 OM_TELEOP::~OM_TELEOP()
 {
-  if(ros::isStarted()) {
-    ros::shutdown(); // explicitly needed since we use ros::start();
-    ros::waitForShutdown();
-  }
-  wait();
 }
 
 void OM_TELEOP::initClient()
 {
-  goal_task_space_path_from_present_position_only_client_ = node_handle_.serviceClient<open_manipulator_msgs::SetKinematicsPose>("goal_task_space_path_from_present_position_only");
-  goal_joint_space_path_client_ = node_handle_.serviceClient<open_manipulator_msgs::SetJointPosition>("goal_joint_space_path");
-  goal_tool_control_client_ = node_handle_.serviceClient<open_manipulator_msgs::SetJointPosition>("goal_tool_control");
+  goal_task_space_path_from_present_position_only_client_ =
+    node_->create_client<SetKinematicsPose>("goal_task_space_path_from_present_position_only");
+  goal_joint_space_path_client_ =
+    node_->create_client<SetJointPosition>("goal_joint_space_path");
+  goal_tool_control_client_ =
+    node_->create_client<SetJointPosition>("goal_tool_control");
 
 }
 void OM_TELEOP::initSubscriber()
 {
-  chain_joint_states_sub_ = node_handle_.subscribe("joint_states", 10, &OM_TELEOP::jointStatesCallback, this);
-  chain_kinematics_pose_sub_ = node_handle_.subscribe("kinematics_pose", 10, &OM_TELEOP::kinematicsPoseCallback, this);
-  joy_command_sub_ = node_handle_.subscribe("joy", 10, &OM_TELEOP::joyCallback, this);
+  chain_joint_states_sub_ =
+    node_->create_subscription<sensor_msgs::msg::JointState>(
+    "joint_states", 10, std::bind(&OM_TELEOP::jointStatesCallback, this, _1));
+  chain_kinematics_pose_sub_ =
+    node_->create_subscription<open_manipulator_msgs::msg::KinematicsPose>(
+    "kinematics_pose", 10, std::bind(&OM_TELEOP::kinematicsPoseCallback, this, _1));
+  joy_command_sub_ =
+    node_->create_subscription<sensor_msgs::msg::Joy>(
+    "joy", 10, std::bind(&OM_TELEOP::joyCallback, this, _1));
 }
 
-void OM_TELEOP::jointStatesCallback(const sensor_msgs::JointState::ConstPtr &msg)
+void OM_TELEOP::jointStatesCallback(const sensor_msgs::msg::JointState::SharedPtr msg)
 {
   std::vector<double> temp_angle;
   temp_angle.resize(NUM_OF_JOINT);
@@ -77,7 +123,8 @@ void OM_TELEOP::jointStatesCallback(const sensor_msgs::JointState::ConstPtr &msg
 
 }
 
-void OM_TELEOP::kinematicsPoseCallback(const open_manipulator_msgs::KinematicsPose::ConstPtr &msg)
+void OM_TELEOP::kinematicsPoseCallback(
+  const open_manipulator_msgs::msg::KinematicsPose::SharedPtr msg)
 {
   std::vector<double> temp_position;
   temp_position.push_back(msg->pose.position.x);
@@ -85,7 +132,7 @@ void OM_TELEOP::kinematicsPoseCallback(const open_manipulator_msgs::KinematicsPo
   temp_position.push_back(msg->pose.position.z);
   present_kinematic_position = temp_position;
 }
-void OM_TELEOP::joyCallback(const sensor_msgs::Joy::ConstPtr &msg)
+void OM_TELEOP::joyCallback(const sensor_msgs::msg::Joy::SharedPtr msg)
 {
   if(msg->axes.at(1) >= 0.9) setGoal("x+");
   else if(msg->axes.at(1) <= -0.9) setGoal("x-");
@@ -111,90 +158,82 @@ std::vector<double> OM_TELEOP::getPresentKinematicsPose()
 
 bool OM_TELEOP::setJointSpacePath(std::vector<std::string> joint_name, std::vector<double> joint_angle, double path_time)
 {
-  open_manipulator_msgs::SetJointPosition srv;
-  srv.request.joint_position.joint_name = joint_name;
-  srv.request.joint_position.position = joint_angle;
-  srv.request.path_time = path_time;
+  auto request = std::make_shared<SetJointPosition::Request>();
+  request->joint_position.joint_name = joint_name;
+  request->joint_position.position = joint_angle;
+  request->path_time = path_time;
 
-  if(goal_joint_space_path_client_.call(srv))
-  {
-    return srv.response.is_planned;
-  }
-  return false;
+  return sendPlanningRequest<SetJointPosition>(
+    node_, goal_joint_space_path_client_, request, "goal_joint_space_path");
 }
 
 bool OM_TELEOP::setToolControl(std::vector<double> joint_angle)
 {
-  open_manipulator_msgs::SetJointPosition srv;
-  srv.request.joint_position.joint_name.push_back(priv_node_handle_.param<std::string>("end_effector_name", "gripper"));
-  srv.request.joint_position.position = joint_angle;
+  auto request = std::make_shared<SetJointPosition::Request>();
+  request->joint_position.joint_name.push_back(end_effector_name_);
+  request->joint_position.position = joint_angle;
 
-  if(goal_tool_control_client_.call(srv))
-  {
-    return srv.response.is_planned;
-  }
-  return false;
+  return sendPlanningRequest<SetJointPosition>(
+    node_, goal_tool_control_client_, request, "goal_tool_control");
 }
 
 bool OM_TELEOP::setTaskSpacePathFromPresentPositionOnly(std::vector<double> kinematics_pose, double path_time)
 {
-  open_manipulator_msgs::SetKinematicsPose srv;
-  srv.request.planning_group = priv_node_handle_.param<std::string>("end_effector_name", "gripper");
-  srv.request.kinematics_pose.pose.position.x = kinematics_pose.at(0);
-  srv.request.kinematics_pose.pose.position.y = kinematics_pose.at(1);
-  srv.request.kinematics_pose.pose.position.z = kinematics_pose.at(2);
-  srv.request.path_time = path_time;
+  auto request = std::make_shared<SetKinematicsPose::Request>();
+  request->planning_group = end_effector_name_;
+  request->kinematics_pose.pose.position.x = kinematics_pose.at(0);
+  request->kinematics_pose.pose.position.y = kinematics_pose.at(1);
+  request->kinematics_pose.pose.position.z = kinematics_pose.at(2);
+  request->path_time = path_time;
 
-  if(goal_task_space_path_from_present_position_only_client_.call(srv))
-  {
-    return srv.response.is_planned;
-  }
-  return false;
+  return sendPlanningRequest<SetKinematicsPose>(
+    node_, goal_task_space_path_from_present_position_only_client_, request,
+    "goal_task_space_path_from_present_position_only");
 }
 
-void OM_TELEOP::setGoal(const char* str)
+void OM_TELEOP::setGoal(const std::string & command)
 {
   std::vector<double> goalPose;  goalPose.resize(3, 0.0);
   std::vector<double> goalJoint; goalJoint.resize(6, 0.0);
 
-  if(str == "x+")
+  if(command == "x+")
   {
     printf("increase(++) x axis in cartesian space\n");
     goalPose.at(0) = DELTA;
     setTaskSpacePathFromPresentPositionOnly(goalPose, PATH_TIME);
   }
-  else if(str == "x-")
+  else if(command == "x-")
   {
     printf("decrease(--) x axis in cartesian space\n");
     goalPose.at(0) = -DELTA;
     setTaskSpacePathFromPresentPositionOnly(goalPose, PATH_TIME);
   }
-  else if(str == "y+")
+  else if(command == "y+")
   {
     printf("increase(++) y axis in cartesian space\n");
     goalPose.at(1) = DELTA;
     setTaskSpacePathFromPresentPositionOnly(goalPose, PATH_TIME);
   }
-  else if(str == "y-")
+  else if(command == "y-")
   {
     printf("decrease(--) y axis in cartesian space\n");
     goalPose.at(1) = -DELTA;
     setTaskSpacePathFromPresentPositionOnly(goalPose, PATH_TIME);
   }
-  else if(str == "z+")
+  else if(command == "z+")
   {
     printf("increase(++) z axis in cartesian space\n");
     goalPose.at(2) = DELTA;
     setTaskSpacePathFromPresentPositionOnly(goalPose, PATH_TIME);
   }
-  else if(str == "z-")
+  else if(command == "z-")
   {
     printf("decrease(--) z axis in cartesian space\n");
     goalPose.at(2) = -DELTA;
     setTaskSpacePathFromPresentPositionOnly(goalPose, PATH_TIME);
   }
 
-  else if(str == "gripper open")
+  else if(command == "gripper open")
   {
     printf("open gripper\n");
     std::vector<double> joint_angle;
@@ -202,7 +241,7 @@ void OM_TELEOP::setGoal(const char* str)
     joint_angle.push_back(0.01);
     setToolControl(joint_angle);
   }
-  else if(str == "gripper close")
+  else if(command == "gripper close")
   {
     printf("close gripper\n");
     std::vector<double> joint_angle;
@@ -210,7 +249,7 @@ void OM_TELEOP::setGoal(const char* str)
     setToolControl(joint_angle);
   }
 
-  else if(str == "home")
+  else if(command == "home")
   {
     printf("home pose\n");
     std::vector<std::string> joint_name;
@@ -225,7 +264,7 @@ void OM_TELEOP::setGoal(const char* str)
     joint_name.push_back("joint6"); joint_angle.push_back(0.0);
     setJointSpacePath(joint_name, joint_angle, path_time);
   }
-  else if(str == "init")
+  else if(command == "init")
   {
     printf("init pose\n");
 
@@ -244,13 +283,14 @@ void OM_TELEOP::setGoal(const char* str)
 
 int main(int argc, char **argv)
 {
-  // Init ROS node
-  ros::init(argc, argv, "open_manipulator_6dof_TELEOP");
-  OM_TELEOP om_teleop;
+  rclcpp::init(argc, argv);
+  auto node = std::make_shared<rclcpp::Node>("open_manipulator_6dof_teleop_joystick");
+  OM_TELEOP om_teleop(node);
 
-  ROS_INFO("OpenManipulator teleoperation using joystick start");
-  ros::spin();
+  RCLCPP_INFO(node->get_logger(), "OpenManipulator teleoperation using joystick start");
+  rclcpp::spin(node);
 
   printf("Teleop. is finished\n");
+  rclcpp::shutdown();
   return 0;
 }
